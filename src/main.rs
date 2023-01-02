@@ -1,62 +1,64 @@
-use winit::{
-    event::*,
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
-};
+use specs::prelude::*;
 
-mod state;
-use state::State;
+mod window;
+mod render;
+
+struct App {
+    window_data: window::WindowData,
+    render: render::Render,
+    world: World,
+    dispatcher: Dispatcher<'static, 'static>,
+}
+impl App {
+    async fn new() -> Self {
+        let window_data = window::WindowData::new();
+        let render = render::Render::new(&window_data.window).await;
+
+        let mut world = World::new();
+        let mut dispatcher = DispatcherBuilder::new().build();
+        dispatcher.setup(&mut world);
+
+        Self {
+            window_data,
+            render,
+            world,
+            dispatcher
+        }
+    }
+}
+impl window::Window for App {
+    fn get_data(&mut self) -> &mut window::WindowData {
+        &mut self.window_data
+    }
+
+    fn on_update(&mut self) {
+        self.dispatcher.dispatch(&self.world);
+        self.world.maintain();
+    }
+
+    fn on_resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        println!("Resized {} {}", new_size.width, new_size.height);
+        self.render.resize(new_size);
+    }
+
+    fn on_redraw(&mut self) {
+        use crate::window::WindowBase;
+        match self.render.render() {
+            Ok(_) => {}
+            Err(wgpu::SurfaceError::Lost) => self.resize(self.window_data.size),
+            Err(wgpu::SurfaceError::OutOfMemory) => self.window_data.exit = true,
+            Err(e) => eprintln!("{:?}", e),
+        }
+    }
+}
 
 pub async fn run() {
-    env_logger::init();
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
-
-    let mut state = State::new(&window).await;
-
-    event_loop.run(move |event, _, control_flow| {
-        match event {
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } if window_id == window.id() => if !state.input(event) {
-                match event {
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    } => *control_flow = ControlFlow::Exit,
-                    WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size)
-                    },
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        state.resize(**new_inner_size)
-                    },
-                    _ => {}
-                }
-            },
-            Event::RedrawRequested(window_id) if window_id == window.id() => {
-                state.update();
-                match state.render() {
-                    Ok(_) => {},
-                    Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
-                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                    Err(e) => eprintln!("{:?}", e)
-                }
-            },
-            Event::MainEventsCleared => {
-                window.request_redraw();
-            }
-            _ => {}
-        }
-    });
+    use crate::window::WindowBase;
+    let app = App::new().await;
+    app.run();
 }
 
 fn main() {
-    pollster::block_on(run());
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(run());
 }

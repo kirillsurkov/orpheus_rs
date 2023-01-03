@@ -33,7 +33,7 @@ pub trait WindowBase {
 }
 
 pub trait Window {
-    fn get_data(&mut self) -> &mut WindowData;
+    fn data(&mut self) -> &mut WindowData;
     fn on_update(&mut self);
     fn on_redraw(&mut self);
     fn on_resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>);
@@ -41,19 +41,19 @@ pub trait Window {
 
 impl<T: 'static + Window> WindowBase for T {
     fn run(mut self) {
-        let event_loop = self.get_data().event_loop.take().unwrap();
+        let event_loop = self.data().event_loop.take().unwrap();
         event_loop.run(move |event, _, control_flow| self.process_events(event, control_flow));
     }
 
     fn process_events(&mut self, event: Event<()>, control_flow: &mut ControlFlow) {
-        if self.get_data().exit {
+        if self.data().exit {
             *control_flow = winit::event_loop::ControlFlow::Exit;
         }
         match event {
             winit::event::Event::WindowEvent {
                 ref event,
                 window_id,
-            } if window_id == self.get_data().window.id() => {
+            } if window_id == self.data().window.id() => {
                 if !self.input(event) {
                     match event {
                         winit::event::WindowEvent::CloseRequested
@@ -66,7 +66,7 @@ impl<T: 'static + Window> WindowBase for T {
                                 },
                             ..
                         } => {
-                            self.get_data().exit = true;
+                            self.data().exit = true;
                         }
                         winit::event::WindowEvent::Resized(physical_size) => {
                             self.resize(*physical_size);
@@ -81,13 +81,13 @@ impl<T: 'static + Window> WindowBase for T {
                 }
             }
             winit::event::Event::RedrawRequested(window_id)
-                if window_id == self.get_data().window.id() =>
+                if window_id == self.data().window.id() =>
             {
                 self.on_update();
                 self.on_redraw();
             }
             winit::event::Event::MainEventsCleared => {
-                self.get_data().window.request_redraw();
+                self.data().window.request_redraw();
             }
             _ => {}
         };
@@ -98,7 +98,7 @@ impl<T: 'static + Window> WindowBase for T {
     }
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.get_data().size = new_size;
+        self.data().size = new_size;
         self.on_resize(new_size);
     }
 }

@@ -1,9 +1,15 @@
+mod camera;
+mod misc;
+mod model;
+
 pub struct Render {
-    pub surface: wgpu::Surface,
-    pub device: wgpu::Device,
-    pub queue: wgpu::Queue,
-    pub config: wgpu::SurfaceConfiguration,
+    surface: wgpu::Surface,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    config: wgpu::SurfaceConfiguration,
     render_pipeline: wgpu::RenderPipeline,
+    model: model::Model,
+    camera: camera::Camera,
 }
 
 impl Render {
@@ -47,10 +53,15 @@ impl Render {
 
         let shader = device.create_shader_module(wgpu::include_wgsl!("static_res/shader.wgsl"));
 
+        let mut camera = camera::Camera::new(&device);
+        camera.look_at(&(0.0, 2.0, 6.0).into(), &(0.0, 0.0, 0.0).into());
+
+        let model = model::Model::from_gltf(&device, "res/monkey.glb").unwrap();
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[],
+                bind_group_layouts: &[camera.transform().bind_group_layout(), model.transform().bind_group_layout()],
                 push_constant_ranges: &[],
             });
 
@@ -60,7 +71,7 @@ impl Render {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[],
+                buffers: &[model::Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -95,6 +106,8 @@ impl Render {
             queue,
             config,
             render_pipeline,
+            model,
+            camera,
         }
     }
 
@@ -129,7 +142,20 @@ impl Render {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.draw(0..3, 0..1);
+
+            self.camera.update_view_proj();
+            self.camera.transform().upload(&self.queue);
+            render_pass.set_bind_group(0, self.camera.transform().bind_group(), &[]);
+
+            self.model.update();
+            self.model.transform().upload(&self.queue);
+            render_pass.set_bind_group(1, self.model.transform().bind_group(), &[]);
+
+            for mesh in self.model.meshes() {
+                render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
+                render_pass.set_index_buffer(mesh.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.draw_indexed(0..mesh.index_count(), 0, 0..1);
+            }
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -143,6 +169,8 @@ impl Render {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            self.camera
+                .set_aspect(self.config.width as f32 / self.config.height as f32);
         }
     }
 }

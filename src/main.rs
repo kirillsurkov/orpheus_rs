@@ -22,12 +22,12 @@ impl App {
             window_data,
             render,
             world,
-            dispatcher
+            dispatcher,
         }
     }
 }
 impl window::Window for App {
-    fn get_data(&mut self) -> &mut window::WindowData {
+    fn data(&mut self) -> &mut window::WindowData {
         &mut self.window_data
     }
 

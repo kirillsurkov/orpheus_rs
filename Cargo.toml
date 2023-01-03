@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-winit = "0.27"
-env_logger = "0.9"
-log = "0.4"
-wgpu = "0.14"
 tokio = { version = "1.23.0", features = ["full"] }
 specs = { version = "0.18.0", features = ["derive"] }
-egui = "0.20.1"
-parry3d = "0.12.0"
+bytemuck = { version = "1.12.3", features = ["derive"] }
+winit = "0.27"
+wgpu = "0.14"
 gltf = "1.0"
+egui = "0.20.1"
+rapier3d = "0.16.1"
+cgmath = "0.18.0"

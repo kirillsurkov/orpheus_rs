@@ -1,3 +1,4 @@
 .vscode
 target
+install
 Cargo.lock

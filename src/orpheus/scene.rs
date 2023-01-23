@@ -2,24 +2,19 @@ use super::*;
 
 pub struct Scene {
     camera: render::camera::Camera,
-    models: Vec<render::model::Model>,
+    entities: Vec<Box<dyn ecs::entity::Entity>>,
 }
 
 impl Scene {
     pub fn new() -> Self {
         Self {
             camera: render::camera::Camera::new(),
-            models: Vec::new(),
+            entities: Vec::new(),
         }
     }
 
-    pub fn models(&self) -> &Vec<render::model::Model> {
-        &self.models
-    }
-
-    pub fn add_model(&mut self, render: &mut render::Render, file_name: &str) {
-        self.models
-            .push(render::model::loaders::gltf::load(file_name, render.device()).unwrap())
+    pub fn add_entity<T: 'static + ecs::entity::Entity>(&mut self, entity: T) {
+        self.entities.push(Box::new(entity));
     }
 
     pub fn camera(&self) -> &render::camera::Camera {

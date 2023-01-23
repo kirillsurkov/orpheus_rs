@@ -26,12 +26,12 @@ impl Clear {
 }
 
 impl RenderPass for Clear {
-    fn exec(
+    type ExecDescriptor<'a> = &'a wgpu::TextureView;
+
+    fn exec<'a>(
         &mut self,
-        _scene: &scene::Scene,
-        view: &wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
-        _queue: &mut wgpu::Queue,
+        view: Self::ExecDescriptor<'a>,
     ) {
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render pass"),

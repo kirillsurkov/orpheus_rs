@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn load(file_name: &str, device: &wgpu::Device) -> Result<Model, ()> {
+pub fn load(file_name: &str, device: &wgpu::Device) -> Model {
     use cgmath::SquareMatrix;
     use wgpu::util::DeviceExt;
 
@@ -87,5 +87,5 @@ pub fn load(file_name: &str, device: &wgpu::Device) -> Result<Model, ()> {
         }
     }
 
-    Ok(result)
+    result
 }

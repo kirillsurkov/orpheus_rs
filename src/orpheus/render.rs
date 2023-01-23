@@ -1,9 +1,10 @@
 use super::*;
 
-pub mod model;
 pub mod camera;
-mod render_pass;
 mod misc;
+pub mod model;
+mod model_cache;
+mod render_pass;
 
 struct RenderPasses {
     clear: render_pass::clear::Clear,
@@ -17,6 +18,7 @@ pub struct Render {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     render_passes: RenderPasses,
+    model_cache: model_cache::ModelCache,
 }
 
 impl Render {
@@ -73,6 +75,7 @@ impl Render {
             queue,
             config,
             render_passes,
+            model_cache: model_cache::ModelCache::new(),
         }
     }
 
@@ -84,7 +87,11 @@ impl Render {
         }
     }
 
-    pub fn render(&mut self, scene: &scene::Scene) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(
+        &mut self,
+        ecs: &mut ecs::ECS,
+        scene: &scene::Scene,
+    ) -> Result<(), wgpu::SurfaceError> {
         use render_pass::RenderPass;
 
         let output = self.surface.get_current_texture()?;
@@ -97,8 +104,18 @@ impl Render {
                 label: Some("Command encoder"),
             });
 
-        self.render_passes.clear.exec(scene, &view, &mut encoder, &mut self.queue);
-        self.render_passes.diffuse.exec(scene, &view, &mut encoder, &mut self.queue);
+        self.render_passes.clear.exec(&mut encoder, &view);
+        self.render_passes.diffuse.exec(
+            &mut encoder,
+            (
+                &mut self.device,
+                &mut self.queue,
+                &mut self.model_cache,
+                ecs,
+                scene,
+                &view,
+            ),
+        );
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();

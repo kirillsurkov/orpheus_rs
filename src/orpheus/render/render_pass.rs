@@ -4,12 +4,11 @@ pub mod clear;
 pub mod diffuse;
 
 pub trait RenderPass {
-    fn exec(
+    type ExecDescriptor<'a>;
+    fn exec<'a>(
         &mut self,
-        scene: &scene::Scene,
-        view: &wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
-        queue: &mut wgpu::Queue,
+        descriptor: Self::ExecDescriptor<'a>,
     );
 }
 

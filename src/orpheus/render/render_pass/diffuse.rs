@@ -19,19 +19,20 @@ impl Diffuse {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let bind_group_layout = &device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(bind_group_layout_label::<Self>().as_str()),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        let bind_group_layout =
+            &device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some(bind_group_layout_label::<Self>().as_str()),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some(bind_group_label::<Self>().as_str()),
             entries: &[wgpu::BindGroupEntry {
@@ -93,12 +94,18 @@ impl Diffuse {
 }
 
 impl RenderPass for Diffuse {
-    fn exec(
+    type ExecDescriptor<'a> = (
+        &'a mut wgpu::Device,
+        &'a mut wgpu::Queue,
+        &'a mut render::model_cache::ModelCache,
+        &'a mut ecs::ECS,
+        &'a scene::Scene,
+        &'a wgpu::TextureView,
+    );
+    fn exec<'a>(
         &mut self,
-        scene: &scene::Scene,
-        view: &wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
-        queue: &mut wgpu::Queue,
+        (device, queue, model_cache, ecs, scene, view): Self::ExecDescriptor<'a>,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render pass"),
@@ -116,14 +123,19 @@ impl RenderPass for Diffuse {
         render_pass.set_bind_group(0, &self.bind_group, &[]);
 
         self.data.camera = *scene.camera().transform();
-        for model in scene.models() {
-            self.data.model = *model.transform();
+
+        for (id, (model, transform)) in ecs.query::<(
+            &ecs::component::model::Model,
+            &mut ecs::component::transform::Transform,
+        )>() {
+            self.data.model = *transform.transform();
+            let model = model_cache.get(model.name());
             queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.data]));
             for mesh in model.meshes() {
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
-                render_pass
+                /*render_pass
                     .set_index_buffer(mesh.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
-                render_pass.draw_indexed(0..mesh.index_count(), 0, 0..1);
+                render_pass.draw_indexed(0..mesh.index_count(), 0, 0..1);*/
             }
         }
     }
